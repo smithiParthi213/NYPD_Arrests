@@ -1,0 +1,52 @@
+{
+	"name": "DF_NYPD_Arrests_CleanUp",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DelimitedText_NYPD_Arrests_DS",
+						"type": "DatasetReference"
+					},
+					"name": "readCSVfile"
+				}
+			],
+			"sinks": [],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          ARREST_KEY as string,",
+				"          DATE_OF_ARREST as string,",
+				"          PD_CD as string,",
+				"          PD_DESC as string,",
+				"          KY_CD as string,",
+				"          OFNS_DESC as string,",
+				"          LAW_CODE as string,",
+				"          LAW_CAT_CD as string,",
+				"          ARREST_BORO as string,",
+				"          ARREST_PRECINCT as string,",
+				"          JURISDICTION_CODE as string,",
+				"          AGE_GROUP as string,",
+				"          PERP_SEX as string,",
+				"          PERP_RACE as string,",
+				"          X_COORD_CD as string,",
+				"          Y_COORD_CD as string,",
+				"          Latitude as string,",
+				"          Longitude as string,",
+				"          {Point - Georeferenced Column} as string,",
+				"          {Georeferenced Column} as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     limit: 100,",
+				"     ignoreNoFilesFound: false) ~> readCSVfile",
+				"readCSVfile derive(LAW_CAT_CD = iifNull({LAW_CAT_CD}, 'Unknown')) ~> derivedColumn1"
+			]
+		}
+	}
+}
