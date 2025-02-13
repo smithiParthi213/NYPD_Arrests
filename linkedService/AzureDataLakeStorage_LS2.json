@@ -1,0 +1,11 @@
+{
+	"name": "AzureDataLakeStorage_LS2",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://dadabi2025stg.dfs.core.windows.net/"
+		}
+	}
+}

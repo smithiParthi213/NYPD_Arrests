@@ -1,0 +1,25 @@
+{
+	"name": "snf_ds",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Snowflake_LS",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"schema": {
+				"type": "string"
+			},
+			"tablename": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "SnowflakeV2Table",
+		"schema": [],
+		"typeProperties": {
+			"schema": "STG",
+			"table": "PET_LICENSE_STAGE"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

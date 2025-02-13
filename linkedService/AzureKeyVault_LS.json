@@ -1,0 +1,12 @@
+{
+	"name": "AzureKeyVault_LS",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"description": "Access to dadabi-key1 from ADF",
+		"annotations": [],
+		"type": "AzureKeyVault",
+		"typeProperties": {
+			"baseUrl": "https://dadabi-key1.vault.azure.net/"
+		}
+	}
+}
