@@ -45,7 +45,7 @@
 				"     validateSchema: false,",
 				"     limit: 100,",
 				"     ignoreNoFilesFound: false) ~> readCSVfile",
-				"readCSVfile derive(LAW_CAT_CD = iifNull({LAW_CAT_CD}, 'Unknown')) ~> derivedColumn1"
+				"readCSVfile derive(LAW_CAT_CD = iifNull(LAW_CAT_CD, 'Unknown')) ~> derivedColumn1"
 			]
 		}
 	}
