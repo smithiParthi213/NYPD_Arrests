@@ -84,7 +84,7 @@
 					"sink": {
 						"type": "SnowflakeV2Sink",
 						"preCopyScript": {
-							"value": "TRUNCATE TABLE STG.PET_LICENSE_STAGE",
+							"value": "TRUNCATE TABLE STG.ARRESTS",
 							"type": "Expression"
 						},
 						"importSettings": {
