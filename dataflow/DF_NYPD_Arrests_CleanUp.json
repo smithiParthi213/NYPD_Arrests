@@ -15,10 +15,14 @@
 			"sinks": [
 				{
 					"dataset": {
-						"referenceName": "Parquet_adls_silver",
+						"referenceName": "DelimitedText_NYPDcsv",
 						"type": "DatasetReference"
 					},
-					"name": "SinkADLS"
+					"name": "SinkADLS",
+					"rejectedDataLinkedService": {
+						"referenceName": "AzureDataLakeStorage_LS2",
+						"type": "LinkedServiceReference"
+					}
 				}
 			],
 			"transformations": [
@@ -60,7 +64,6 @@
 				"     ),",
 				"     allowSchemaDrift: true,",
 				"     validateSchema: false,",
-				"     limit: 100,",
 				"     ignoreNoFilesFound: false) ~> readCSVfile",
 				"join1 derive(LAW_CAT_CD = iif(LAW_CAT_CD == 'v' || LAW_CAT_CD == 'F' || LAW_CAT_CD == 'M', LAW_CAT_CD, 'Unknown')\r",
 				",",
@@ -104,13 +107,14 @@
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true) ~> PickedRequiredCols",
 				"PickedRequiredCols sink(allowSchemaDrift: true,",
-				"     validateSchema: true,",
-				"     format: 'parquet',",
+				"     validateSchema: false,",
 				"     umask: 0022,",
 				"     preCommands: [],",
 				"     postCommands: [],",
 				"     skipDuplicateMapInputs: true,",
-				"     skipDuplicateMapOutputs: true) ~> SinkADLS"
+				"     skipDuplicateMapOutputs: true,",
+				"     outputAssertFailedRows: true,",
+				"     assertFailure_fileSystem: 'silver') ~> SinkADLS"
 			]
 		}
 	}
