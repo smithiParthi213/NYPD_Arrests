@@ -12,32 +12,49 @@
 					"name": "readCSVfile"
 				}
 			],
-			"sinks": [],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "Parquet_adls_silver",
+						"type": "DatasetReference"
+					},
+					"name": "SinkADLS"
+				}
+			],
 			"transformations": [
 				{
 					"name": "derivedColumn1"
+				},
+				{
+					"name": "aggregate1"
+				},
+				{
+					"name": "join1"
+				},
+				{
+					"name": "PickedRequiredCols"
 				}
 			],
 			"scriptLines": [
 				"source(output(",
-				"          ARREST_KEY as string,",
-				"          DATE_OF_ARREST as string,",
-				"          PD_CD as string,",
+				"          ARREST_KEY as integer,",
+				"          DATE_OF_ARREST as date,",
+				"          PD_CD as integer,",
 				"          PD_DESC as string,",
-				"          KY_CD as string,",
+				"          KY_CD as integer,",
 				"          OFNS_DESC as string,",
 				"          LAW_CODE as string,",
 				"          LAW_CAT_CD as string,",
 				"          ARREST_BORO as string,",
-				"          ARREST_PRECINCT as string,",
-				"          JURISDICTION_CODE as string,",
+				"          ARREST_PRECINCT as integer,",
+				"          JURISDICTION_CODE as integer,",
 				"          AGE_GROUP as string,",
 				"          PERP_SEX as string,",
 				"          PERP_RACE as string,",
-				"          X_COORD_CD as string,",
-				"          Y_COORD_CD as string,",
-				"          Latitude as string,",
-				"          Longitude as string,",
+				"          X_COORD_CD as double,",
+				"          Y_COORD_CD as double,",
+				"          Latitude as decimal(20,13),",
+				"          Longitude as decimal(20,13),",
 				"          {Point - Georeferenced Column} as string,",
 				"          {Georeferenced Column} as string",
 				"     ),",
@@ -45,7 +62,55 @@
 				"     validateSchema: false,",
 				"     limit: 100,",
 				"     ignoreNoFilesFound: false) ~> readCSVfile",
-				"readCSVfile derive(LAW_CAT_CD = iifNull(LAW_CAT_CD, 'Unknown')) ~> derivedColumn1"
+				"join1 derive(LAW_CAT_CD = iif(LAW_CAT_CD == 'v' || LAW_CAT_CD == 'F' || LAW_CAT_CD == 'M', LAW_CAT_CD, 'Unknown')\r",
+				",",
+				"          X_COORD_CD = iif(isNull(X_COORD_CD) || X_COORD_CD == 0, avg_X_COORD_CD, X_COORD_CD),",
+				"          Y_COORD_CD = iif(isNull(Y_COORD_CD) || Y_COORD_CD == 0, avg_Y_COORD_CD, Y_COORD_CD),",
+				"          Latitude = iif(isNull(Latitude) || Latitude == 0, avg_Latitude, Latitude)\r",
+				",",
+				"          Longitude = iif(isNull(Longitude) || Longitude == 0, avg_Longitude, Longitude)\r",
+				") ~> derivedColumn1",
+				"readCSVfile aggregate(avg_X_COORD_CD = avg(X_COORD_CD),",
+				"          avg_Y_COORD_CD = avg(Y_COORD_CD),",
+				"          avg_Latitude = avg(Latitude),",
+				"          avg_Longitude = avg(Longitude)) ~> aggregate1",
+				"aggregate1, readCSVfile join(true(),",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join1",
+				"derivedColumn1 select(mapColumn(",
+				"          ARREST_KEY,",
+				"          DATE_OF_ARREST,",
+				"          PD_CD,",
+				"          PD_DESC,",
+				"          KY_CD,",
+				"          OFNS_DESC,",
+				"          LAW_CODE,",
+				"          LAW_CAT_CD,",
+				"          ARREST_BORO,",
+				"          ARREST_PRECINCT,",
+				"          JURISDICTION_CODE,",
+				"          AGE_GROUP,",
+				"          PERP_SEX,",
+				"          PERP_RACE,",
+				"          X_COORD_CD_Trans = X_COORD_CD,",
+				"          Y_COORD_CD_Trans = Y_COORD_CD,",
+				"          Latitude_Trans = Latitude,",
+				"          Longitude_Trans = Longitude,",
+				"          {Point - Georeferenced Column},",
+				"          {Georeferenced Column}",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> PickedRequiredCols",
+				"PickedRequiredCols sink(allowSchemaDrift: true,",
+				"     validateSchema: true,",
+				"     format: 'parquet',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SinkADLS"
 			]
 		}
 	}
