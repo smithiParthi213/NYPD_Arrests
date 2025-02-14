@@ -1,0 +1,122 @@
+{
+	"name": "PL_NYPD_Arrests",
+	"properties": {
+		"activities": [
+			{
+				"name": "CleanUp",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "DF_NYPD_Arrests_CleanUp",
+						"type": "DataFlowReference",
+						"datasetParameters": {
+							"readCSVfile": {
+								"Directory": "NYPD_Arrests",
+								"FileName": "Alteryx_Profiled_DS.csv",
+								"FileDelimiter": ","
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			},
+			{
+				"name": "csv_2_SNF",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "CleanUp",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "00:30:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"additionalColumns": [
+							{
+								"name": "ID_JOB_ID",
+								"value": {
+									"value": "@pipeline().RunId",
+									"type": "Expression"
+								}
+							},
+							{
+								"name": "ID_LOAD_DATE",
+								"value": {
+									"value": "@utcNow()",
+									"type": "Expression"
+								}
+							}
+						],
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"wildcardFileName": "*",
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "SnowflakeV2Sink",
+						"preCopyScript": {
+							"value": "TRUNCATE TABLE STG.PET_LICENSE_STAGE",
+							"type": "Expression"
+						},
+						"importSettings": {
+							"type": "SnowflakeImportCopyCommand"
+						}
+					},
+					"enableStaging": true,
+					"stagingSettings": {
+						"linkedServiceName": {
+							"referenceName": "AzureBlobStorage002_LS",
+							"type": "LinkedServiceReference"
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DelimitedText_NYPDcsv",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "SnowflakeTable_NYPD_arrests",
+						"type": "DatasetReference",
+						"parameters": {
+							"Schema": "STG",
+							"Table": "Arrests"
+						}
+					}
+				]
+			}
+		],
+		"annotations": []
+	}
+}
