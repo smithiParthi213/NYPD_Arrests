@@ -1,0 +1,826 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "dadabi-adf-001"
+		},
+		"Snowflake_LS_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'Snowflake_LS'"
+		},
+		"AzureBlobStorage002_LS_sasUri": {
+			"type": "secureString",
+			"metadata": "Secure string for 'sasUri' of 'AzureBlobStorage002_LS'"
+		},
+		"AzureDataLakeStorage_LS2_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://dadabi2025stg.dfs.core.windows.net/"
+		},
+		"AzureKeyVault_LS_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://dadabi-key1.vault.azure.net/"
+		},
+		"Snowflake_LS_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "DAMG7370_DB_BRONZE"
+		},
+		"Snowflake_LS_properties_typeProperties_role": {
+			"type": "string",
+			"defaultValue": "DEV_USER"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_SNF_STG')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "parquet_2_snf",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "tsv_2_parquet",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "00:30:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"additionalColumns": [
+									{
+										"name": "ID_JOB_ID",
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										}
+									},
+									{
+										"name": "ID_LOAD_DATE",
+										"value": {
+											"value": "@utcNow()",
+											"type": "Expression"
+										}
+									}
+								],
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "ParquetReadSettings"
+								}
+							},
+							"sink": {
+								"type": "SnowflakeV2Sink",
+								"preCopyScript": {
+									"value": "TRUNCATE TABLE STG.PET_LICENSE_STAGE",
+									"type": "Expression"
+								},
+								"importSettings": {
+									"type": "SnowflakeImportCopyCommand"
+								}
+							},
+							"enableStaging": true,
+							"stagingSettings": {
+								"linkedServiceName": {
+									"referenceName": "AzureBlobStorage002_LS",
+									"type": "LinkedServiceReference"
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "Parquet1",
+								"type": "DatasetReference",
+								"parameters": {
+									"FileName": {
+										"value": "@variables('myFileName')",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "snf_ds",
+								"type": "DatasetReference",
+								"parameters": {
+									"schema": "STG",
+									"tablename": "PET_LICENSE_STAGE"
+								}
+							}
+						]
+					},
+					{
+						"name": "tsv_2_parquet",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "00:30:00",
+							"retry": 1,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"validateDataConsistency": true,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DelimitedText_petLic_ds",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "Parquet1",
+								"type": "DatasetReference",
+								"parameters": {
+									"FileName": {
+										"value": "@variables('myFileName')",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"myFileName": {
+						"type": "String",
+						"defaultValue": "pet_lic.parquet"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-02-07T03:21:47Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Parquet1')]",
+				"[concat(variables('factoryId'), '/datasets/snf_ds')]",
+				"[concat(variables('factoryId'), '/datasets/DelimitedText_petLic_ds')]",
+				"[concat(variables('factoryId'), '/linkedServices/AzureBlobStorage002_LS')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DelimitedText_NYPD_Arrests_DS')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage_LS2",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"Directory": {
+						"type": "string",
+						"defaultValue": "NYPD_Arrests"
+					},
+					"FileName": {
+						"type": "string",
+						"defaultValue": "Alteryx_Profiled_DS.csv"
+					},
+					"FileDelimiter": {
+						"type": "string",
+						"defaultValue": ","
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().Directory",
+							"type": "Expression"
+						},
+						"fileSystem": "bronze"
+					},
+					"columnDelimiter": {
+						"value": "@dataset().FileDelimiter",
+						"type": "Expression"
+					},
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "ARREST_KEY",
+						"type": "String"
+					},
+					{
+						"name": "DATE_OF_ARREST",
+						"type": "String"
+					},
+					{
+						"name": "PD_CD",
+						"type": "String"
+					},
+					{
+						"name": "PD_DESC",
+						"type": "String"
+					},
+					{
+						"name": "KY_CD",
+						"type": "String"
+					},
+					{
+						"name": "OFNS_DESC",
+						"type": "String"
+					},
+					{
+						"name": "LAW_CODE",
+						"type": "String"
+					},
+					{
+						"name": "LAW_CAT_CD",
+						"type": "String"
+					},
+					{
+						"name": "ARREST_BORO",
+						"type": "String"
+					},
+					{
+						"name": "ARREST_PRECINCT",
+						"type": "String"
+					},
+					{
+						"name": "JURISDICTION_CODE",
+						"type": "String"
+					},
+					{
+						"name": "AGE_GROUP",
+						"type": "String"
+					},
+					{
+						"name": "PERP_SEX",
+						"type": "String"
+					},
+					{
+						"name": "PERP_RACE",
+						"type": "String"
+					},
+					{
+						"name": "X_COORD_CD",
+						"type": "String"
+					},
+					{
+						"name": "Y_COORD_CD",
+						"type": "String"
+					},
+					{
+						"name": "Latitude",
+						"type": "String"
+					},
+					{
+						"name": "Longitude",
+						"type": "String"
+					},
+					{
+						"name": "Point - Georeferenced Column",
+						"type": "String"
+					},
+					{
+						"name": "Georeferenced Column",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage_LS2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DelimitedText_petLic_ds')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage_LS2",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "seattle_pet_lic_ds.tsv",
+						"fileSystem": "bronze"
+					},
+					"columnDelimiter": "\t",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage_LS2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Parquet1')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage_LS2",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FileName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().filename",
+							"type": "Expression"
+						},
+						"fileSystem": "silver"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage_LS2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/snf_ds')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Snowflake_LS",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"schema": {
+						"type": "string"
+					},
+					"tablename": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "SnowflakeV2Table",
+				"schema": [],
+				"typeProperties": {
+					"schema": "STG",
+					"table": "PET_LICENSE_STAGE"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Snowflake_LS')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureBlobStorage002_LS')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobStorage",
+				"typeProperties": {
+					"sasUri": "[parameters('AzureBlobStorage002_LS_sasUri')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureDataLakeStorage_LS2')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('AzureDataLakeStorage_LS2_properties_typeProperties_url')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureKeyVault_LS')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Access to dadabi-key1 from ADF",
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('AzureKeyVault_LS_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Snowflake_LS')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "SnowflakeV2",
+				"typeProperties": {
+					"authenticationType": "Basic",
+					"accountIdentifier": "jxgqhvf-xda46630",
+					"user": "SP_001",
+					"database": "[parameters('Snowflake_LS_properties_typeProperties_database')]",
+					"warehouse": "SP_WH",
+					"role": "[parameters('Snowflake_LS_properties_typeProperties_role')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('Snowflake_LS_password')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DF_NYPD_Arrests_CleanUp')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "DelimitedText_NYPD_Arrests_DS",
+								"type": "DatasetReference"
+							},
+							"name": "readCSVfile"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "DelimitedText_NYPDcsv_sink",
+								"type": "DatasetReference"
+							},
+							"name": "SinkADLS",
+							"rejectedDataLinkedService": {
+								"referenceName": "AzureDataLakeStorage_LS2",
+								"type": "LinkedServiceReference"
+							}
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "aggregate1"
+						},
+						{
+							"name": "join1"
+						},
+						{
+							"name": "PickedRequiredCols"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          ARREST_KEY as integer,",
+						"          DATE_OF_ARREST as date,",
+						"          PD_CD as integer,",
+						"          PD_DESC as string,",
+						"          KY_CD as integer,",
+						"          OFNS_DESC as string,",
+						"          LAW_CODE as string,",
+						"          LAW_CAT_CD as string,",
+						"          ARREST_BORO as string,",
+						"          ARREST_PRECINCT as integer,",
+						"          JURISDICTION_CODE as integer,",
+						"          AGE_GROUP as string,",
+						"          PERP_SEX as string,",
+						"          PERP_RACE as string,",
+						"          X_COORD_CD as double,",
+						"          Y_COORD_CD as double,",
+						"          Latitude as decimal(20,13),",
+						"          Longitude as decimal(20,13),",
+						"          {Point - Georeferenced Column} as string,",
+						"          {Georeferenced Column} as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> readCSVfile",
+						"join1 derive(LAW_CAT_CD = iif(LAW_CAT_CD == 'v' || LAW_CAT_CD == 'F' || LAW_CAT_CD == 'M', LAW_CAT_CD, 'Unknown')\r",
+						",",
+						"          X_COORD_CD = iif(isNull(X_COORD_CD) || X_COORD_CD == 0, avg_X_COORD_CD, X_COORD_CD),",
+						"          Y_COORD_CD = iif(isNull(Y_COORD_CD) || Y_COORD_CD == 0, avg_Y_COORD_CD, Y_COORD_CD),",
+						"          Latitude = iif(isNull(Latitude) || Latitude == 0, avg_Latitude, Latitude)\r",
+						",",
+						"          Longitude = iif(isNull(Longitude) || Longitude == 0, avg_Longitude, Longitude)\r",
+						") ~> derivedColumn1",
+						"readCSVfile aggregate(avg_X_COORD_CD = avg(X_COORD_CD),",
+						"          avg_Y_COORD_CD = avg(Y_COORD_CD),",
+						"          avg_Latitude = avg(Latitude),",
+						"          avg_Longitude = avg(Longitude)) ~> aggregate1",
+						"aggregate1, readCSVfile join(true(),",
+						"     joinType:'cross',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join1",
+						"derivedColumn1 select(mapColumn(",
+						"          ARREST_KEY,",
+						"          DATE_OF_ARREST,",
+						"          PD_CD,",
+						"          PD_DESC,",
+						"          KY_CD,",
+						"          OFNS_DESC,",
+						"          LAW_CODE,",
+						"          LAW_CAT_CD,",
+						"          ARREST_BORO,",
+						"          ARREST_PRECINCT,",
+						"          JURISDICTION_CODE,",
+						"          AGE_GROUP,",
+						"          PERP_SEX,",
+						"          PERP_RACE,",
+						"          X_COORD_CD_Trans = X_COORD_CD,",
+						"          Y_COORD_CD_Trans = Y_COORD_CD,",
+						"          Latitude_Trans = Latitude,",
+						"          Longitude_Trans = Longitude,",
+						"          {Point - Georeferenced Column},",
+						"          {Georeferenced Column}",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> PickedRequiredCols",
+						"PickedRequiredCols sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     outputAssertFailedRows: true,",
+						"     assertFailure_fileSystem: 'silver') ~> SinkADLS"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DelimitedText_NYPD_Arrests_DS')]",
+				"[concat(variables('factoryId'), '/datasets/DelimitedText_NYPDcsv_sink')]",
+				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage_LS2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_NYPD_Arrests')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "CleanUp",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "DF_NYPD_Arrests_CleanUp",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"readCSVfile": {
+										"Directory": "NYPD_Arrests",
+										"FileName": "Alteryx_Profiled_DS.csv",
+										"FileDelimiter": ","
+									},
+									"SinkADLS": {}
+								},
+								"linkedServiceParameters": {}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "csv_2_SNF",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "CleanUp",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "00:30:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"additionalColumns": [
+									{
+										"name": "ID_JOB_ID",
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										}
+									},
+									{
+										"name": "ID_LOAD_DATE",
+										"value": {
+											"value": "@utcNow()",
+											"type": "Expression"
+										}
+									}
+								],
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFileName": "*",
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "SnowflakeV2Sink",
+								"preCopyScript": {
+									"value": "TRUNCATE TABLE STG.ARRESTS",
+									"type": "Expression"
+								},
+								"importSettings": {
+									"type": "SnowflakeImportCopyCommand"
+								}
+							},
+							"enableStaging": true,
+							"stagingSettings": {
+								"linkedServiceName": {
+									"referenceName": "AzureBlobStorage002_LS",
+									"type": "LinkedServiceReference"
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DelimitedText_NYPDcsv_sink",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "SnowflakeTable_NYPD_arrests",
+								"type": "DatasetReference",
+								"parameters": {
+									"Schema": "STG",
+									"Table": "Arrests"
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/DF_NYPD_Arrests_CleanUp')]",
+				"[concat(variables('factoryId'), '/datasets/DelimitedText_NYPDcsv_sink')]",
+				"[concat(variables('factoryId'), '/datasets/SnowflakeTable_NYPD_arrests')]",
+				"[concat(variables('factoryId'), '/linkedServices/AzureBlobStorage002_LS')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/SnowflakeTable_NYPD_arrests')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Snowflake_LS",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"Schema": {
+						"type": "string"
+					},
+					"Table": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "SnowflakeV2Table",
+				"schema": [],
+				"typeProperties": {
+					"schema": "STG",
+					"table": "ARRESTS"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Snowflake_LS')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DelimitedText_NYPDcsv_sink')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage_LS2",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "NYPD_Arrests",
+						"fileSystem": "silver"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage_LS2')]"
+			]
+		}
+	]
+}
