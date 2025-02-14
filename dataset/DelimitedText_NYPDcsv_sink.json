@@ -1,5 +1,5 @@
 {
-	"name": "DelimitedText_NYPDcsv",
+	"name": "DelimitedText_NYPDcsv_sink",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "AzureDataLakeStorage_LS2",

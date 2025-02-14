@@ -15,7 +15,7 @@
 			"sinks": [
 				{
 					"dataset": {
-						"referenceName": "DelimitedText_NYPDcsv",
+						"referenceName": "DelimitedText_NYPDcsv_sink",
 						"type": "DatasetReference"
 					},
 					"name": "SinkADLS",
