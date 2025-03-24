@@ -1,22 +1,19 @@
 {
-	"name": "DelimitedText_NYPDcsv_sink",
+	"name": "Parquet2",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "AzureDataLakeStorage_LS2",
 			"type": "LinkedServiceReference"
 		},
 		"annotations": [],
-		"type": "DelimitedText",
+		"type": "Parquet",
 		"typeProperties": {
 			"location": {
 				"type": "AzureBlobFSLocation",
-				"folderPath": "NYPD_Arrests",
+				"folderPath": "SEA_PET_LIC_CLEAN_DS",
 				"fileSystem": "silver"
 			},
-			"columnDelimiter": ",",
-			"escapeChar": "\\",
-			"firstRowAsHeader": true,
-			"quoteChar": "\""
+			"compressionCodec": "snappy"
 		},
 		"schema": []
 	},

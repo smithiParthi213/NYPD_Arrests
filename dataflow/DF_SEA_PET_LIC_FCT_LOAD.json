@@ -1,0 +1,201 @@
+{
+	"name": "DF_SEA_PET_LIC_FCT_LOAD",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Snowflake_SEA_PET_LIC_v2_STG",
+						"type": "DatasetReference"
+					},
+					"name": "SourceStgTable"
+				},
+				{
+					"dataset": {
+						"referenceName": "Snowflake_LocationDim_table",
+						"type": "DatasetReference"
+					},
+					"name": "SourceLocationDim"
+				},
+				{
+					"dataset": {
+						"referenceName": "Snowflake_BreedDim_table",
+						"type": "DatasetReference"
+					},
+					"name": "SourceBreedDim"
+				},
+				{
+					"dataset": {
+						"referenceName": "Snowflake_Date_Dim",
+						"type": "DatasetReference"
+					},
+					"name": "SourceDateDim"
+				},
+				{
+					"dataset": {
+						"referenceName": "Snowflake_SEA_PET_LIC_v2_STG",
+						"type": "DatasetReference"
+					},
+					"name": "FctMaxID"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "Snowflake_PetLic_FCT_tbl",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "joinLocationDim"
+				},
+				{
+					"name": "joinBreedDim"
+				},
+				{
+					"name": "joinDateDim"
+				},
+				{
+					"name": "surrogateKeyPetLicSK"
+				},
+				{
+					"name": "selectReqCols"
+				},
+				{
+					"name": "joinFactMaxID"
+				},
+				{
+					"name": "derivedColumns"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     job_id as string (\"SP_001\")",
+				"}",
+				"source(output(",
+				"          LICENSE_ISSUE_DATE as date,",
+				"          LICENSE_NUMBER as decimal(38,0),",
+				"          ANIMAL_NAME as string,",
+				"          SPECIES as string,",
+				"          PRIMARY_BREED as string,",
+				"          SECONDARY_BREED as string,",
+				"          ZIP_CODE as string,",
+				"          DI_JOB_ID as string,",
+				"          DI_LOAD_DT as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> SourceStgTable",
+				"source(output(",
+				"          LOCATION_SK as decimal(10,0),",
+				"          CITY as string,",
+				"          STATE as string,",
+				"          STATE_ABBR as string,",
+				"          ZIP_CODE as string,",
+				"          DI_JOB_ID as string,",
+				"          DI_LOAD_DT as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> SourceLocationDim",
+				"source(output(",
+				"          BREED_SK as decimal(10,0),",
+				"          START_DT as date,",
+				"          END_DT as date,",
+				"          IS_ACTIVE as decimal(10,0),",
+				"          BREED_DK as decimal(10,0),",
+				"          SPECIES_NAME as string,",
+				"          PRIMARY_BREED_NAME as string,",
+				"          SECONDARY_BREED_NAME as string,",
+				"          DI_JOB_ID as string,",
+				"          DI_LOAD_DT as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> SourceBreedDim",
+				"source(output(",
+				"          DT as date,",
+				"          AABR_DAY_NAME as string,",
+				"          MONTH_NAME as string,",
+				"          START_DAY_OF_MONTH as date,",
+				"          END_DAY_OF_MONTH as date,",
+				"          QUARTER_NUM as decimal(2,0),",
+				"          DAY_OF_WEEK as decimal(2,0),",
+				"          IS_WEEKEND as decimal(1,0),",
+				"          YEAR_NUM as decimal(4,0),",
+				"          MONTH_NUM as decimal(2,0),",
+				"          DAY_NUM as decimal(2,0),",
+				"          DATE_DIM_SK as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> SourceDateDim",
+				"source(output(",
+				"          PET_LIC_SK_MAX as decimal(10,0)",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     query: 'select nvl(max(PET_LIC_SK), 0) as PET_LIC_SK_max from SEATTLE_PET_LIC.PET_LIC_FCT',",
+				"     format: 'query') ~> FctMaxID",
+				"SourceStgTable, SourceLocationDim join(SourceStgTable@ZIP_CODE == SourceLocationDim@ZIP_CODE,",
+				"     joinType:'inner',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> joinLocationDim",
+				"joinLocationDim, SourceBreedDim join(PRIMARY_BREED == PRIMARY_BREED_NAME",
+				"     && SECONDARY_BREED == SECONDARY_BREED_NAME",
+				"     && SPECIES == SPECIES_NAME,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> joinBreedDim",
+				"joinBreedDim, SourceDateDim join(LICENSE_ISSUE_DATE == DT,",
+				"     joinType:'inner',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> joinDateDim",
+				"selectReqCols keyGenerate(output(PetLic_SK as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKeyPetLicSK",
+				"joinFactMaxID select(mapColumn(",
+				"          LICENSE_NUMBER,",
+				"          LOCATION_SK,",
+				"          BREED_SK,",
+				"          DATE_DIM_SK,",
+				"          PET_LIC_SK_MAX",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> selectReqCols",
+				"joinDateDim, FctMaxID join(1==1,",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> joinFactMaxID",
+				"surrogateKeyPetLicSK derive(PetLic_SK = PetLic_SK + PET_LIC_SK_MAX,",
+				"          DI_JOB_ID = $job_id,",
+				"          DI_LOAD_DT = currentDate()) ~> derivedColumns",
+				"derivedColumns sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     stageInsert: true,",
+				"     mapColumn(",
+				"          LIC_NUM = LICENSE_NUMBER,",
+				"          LOCATION_SK,",
+				"          BREED_SK,",
+				"          DATE_SK = DATE_DIM_SK,",
+				"          PET_LIC_SK = PetLic_SK,",
+				"          DI_JOB_ID,",
+				"          DI_LOAD_DT",
+				"     )) ~> sink1"
+			]
+		}
+	}
+}

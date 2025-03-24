@@ -1,0 +1,160 @@
+{
+	"name": "DF_SEA_PET_LIC_BREED_DIM_LOAD",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Snowflake_SEA_PET_LIC_v2_STG",
+						"type": "DatasetReference"
+					},
+					"name": "SeaPetLicV2StgTbl"
+				},
+				{
+					"dataset": {
+						"referenceName": "Snowflake_BreedDim_table",
+						"type": "DatasetReference"
+					},
+					"name": "BreedDimMaxID"
+				},
+				{
+					"dataset": {
+						"referenceName": "Snowflake_BreedDim_table",
+						"type": "DatasetReference"
+					},
+					"name": "BreedDimTbl"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "Snowflake_BreedDim_table",
+						"type": "DatasetReference"
+					},
+					"name": "SinkSnfBreedDimTbl"
+				}
+			],
+			"transformations": [
+				{
+					"name": "SourceDatawithSK"
+				},
+				{
+					"name": "aggregateBreedKeys"
+				},
+				{
+					"name": "JoinToTarget",
+					"description": "Left Outer Join on 'aggregateBreedKeys' and 'BreedDimTbl'"
+				},
+				{
+					"name": "FilterExistingRows"
+				},
+				{
+					"name": "surrogateKey1"
+				},
+				{
+					"name": "derivedCols"
+				},
+				{
+					"name": "derivedColumn1"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     job_id as string (\"sp_001\")",
+				"}",
+				"source(output(",
+				"          LICENSE_ISSUE_DATE as date,",
+				"          LICENSE_NUMBER as decimal(38,0),",
+				"          ANIMAL_NAME as string,",
+				"          SPECIES as string,",
+				"          PRIMARY_BREED as string,",
+				"          SECONDARY_BREED as string,",
+				"          ZIP_CODE as string,",
+				"          DI_JOB_ID as string,",
+				"          DI_LOAD_DT as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> SeaPetLicV2StgTbl",
+				"source(output(",
+				"          MAXBREEDSK as decimal(10,0)",
+				"     ),",
+				"     allowSchemaDrift: false,",
+				"     validateSchema: false,",
+				"     query: 'select NVL(MAX(BREED_SK),0) as MaxBreedSK from SEATTLE_PET_LIC.BREED_DIM',",
+				"     format: 'query') ~> BreedDimMaxID",
+				"source(output(",
+				"          BREED_SK as decimal(10,0),",
+				"          START_DT as date,",
+				"          END_DT as date,",
+				"          IS_ACTIVE as decimal(10,0),",
+				"          BREED_DK as decimal(10,0),",
+				"          SPECIES_NAME as string,",
+				"          PRIMARY_BREED_NAME as string,",
+				"          SECONDARY_BREED_NAME as string,",
+				"          DI_JOB_ID as string,",
+				"          DI_LOAD_DT as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> BreedDimTbl",
+				"SeaPetLicV2StgTbl, BreedDimMaxID join(1==1,",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> SourceDatawithSK",
+				"SourceDatawithSK aggregate(groupBy(SPECIES,",
+				"          PRIMARY_BREED,",
+				"          SECONDARY_BREED,",
+				"          MAXBREEDSK),",
+				"     COUNT_ROW = count(LICENSE_NUMBER)) ~> aggregateBreedKeys",
+				"aggregateBreedKeys, BreedDimTbl join(SPECIES == SPECIES_NAME",
+				"     && PRIMARY_BREED == PRIMARY_BREED_NAME",
+				"     && SECONDARY_BREED == SECONDARY_BREED_NAME,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> JoinToTarget",
+				"JoinToTarget filter(isNull(SPECIES_NAME)&&isNull(PRIMARY_BREED_NAME)&&isNull(SECONDARY_BREED_NAME)) ~> FilterExistingRows",
+				"derivedColumn1 keyGenerate(output(RowNum as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKey1",
+				"surrogateKey1 derive(BREED_SK = MAXBREEDSK + RowNum,",
+				"          BREED_DK = iif(Row_Action == 'insert', abs(toInteger(crc32(concat(SPECIES, PRIMARY_BREED, SECONDARY_BREED)))), toInteger(BREED_DK)),",
+				"          DI_JOB_ID = $job_id,",
+				"          DI_LOAD_DT = currentDate(),",
+				"          START_DT = currentDate(),",
+				"          END_DT = iif(Row_Action == 'update', currentDate(), toDate('9999-12-31')),",
+				"          IS_ACTIVE = iif(Row_Action == 'update', '0', '1')) ~> derivedCols",
+				"FilterExistingRows derive(Row_Action = iif(!isNull(BREED_DK) && IS_ACTIVE == 1 && (\r",
+				"    SPECIES != SPECIES_NAME ||\r",
+				"    PRIMARY_BREED != PRIMARY_BREED_NAME ||\r",
+				"    SECONDARY_BREED != SECONDARY_BREED_NAME\r",
+				"), 'update', 'insert')) ~> derivedColumn1",
+				"derivedCols sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     stageInsert: true,",
+				"     mapColumn(",
+				"          BREED_SK,",
+				"          START_DT,",
+				"          END_DT,",
+				"          IS_ACTIVE,",
+				"          BREED_DK,",
+				"          SPECIES_NAME = SPECIES,",
+				"          PRIMARY_BREED_NAME = PRIMARY_BREED,",
+				"          SECONDARY_BREED_NAME = SECONDARY_BREED,",
+				"          DI_JOB_ID,",
+				"          DI_LOAD_DT",
+				"     )) ~> SinkSnfBreedDimTbl"
+			]
+		}
+	}
+}

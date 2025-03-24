@@ -1,26 +1,16 @@
 {
-	"name": "snf_ds",
+	"name": "Snowflake_BreedDim_table",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "Snowflake_LS",
 			"type": "LinkedServiceReference"
 		},
-		"parameters": {
-			"schema": {
-				"type": "string",
-				"defaultValue": "STG"
-			},
-			"tablename": {
-				"type": "string",
-				"defaultValue": "PET_LICENSE_STAGE"
-			}
-		},
 		"annotations": [],
 		"type": "SnowflakeV2Table",
 		"schema": [],
 		"typeProperties": {
-			"schema": "STG",
-			"table": "PET_LICENSE_STAGE"
+			"schema": "SEATTLE_PET_LIC",
+			"table": "BREED_DIM"
 		}
 	},
 	"type": "Microsoft.DataFactory/factories/datasets"

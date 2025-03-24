@@ -1,0 +1,115 @@
+{
+	"name": "DF_SEA_PET_LIC_CleanUp_and_STG",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "SEA_PET_LIC_RAW_DS",
+						"type": "DatasetReference"
+					},
+					"name": "readTSVfile"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "Parquet2",
+						"type": "DatasetReference"
+					},
+					"name": "sinkAdlsSilver"
+				},
+				{
+					"dataset": {
+						"referenceName": "SnowflakeTbl_SEA_PET_LIC_v2_STG",
+						"type": "DatasetReference"
+					},
+					"name": "SinkSnfStgTbl"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "PickedRequiredCols"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     Job_ID as string (\"SP_001\")",
+				"}",
+				"source(output(",
+				"          {License Issue Date} as string,",
+				"          {License Number} as string,",
+				"          {Animal's Name} as string,",
+				"          Species as string,",
+				"          {Primary Breed} as string,",
+				"          {Secondary Breed} as string,",
+				"          {ZIP Code} as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> readTSVfile",
+				"readTSVfile derive(License_Issue_Date_trans = toDate({License Issue Date}, 'MMMM dd yyyy', 'en-US'),",
+				"          Secondary_Breed_trans = iifNull({Secondary Breed}, 'Unknown'),",
+				"          Zip_Code_trans = lpad(toString({ZIP Code}), 5, '0'),",
+				"          Species_trans = upper(Species),",
+				"          License_number_trans = toInteger(translate({License Number},'S', '')),",
+				"          Animal_Name_trans = translate({Animal's Name}, '()', ''),",
+				"          DI_Job_ID = $Job_ID,",
+				"          DI_LOAD_DT = currentDate()) ~> derivedColumn1",
+				"derivedColumn1 select(mapColumn(",
+				"          License_Issue_Date = License_Issue_Date_trans,",
+				"          License_Number = License_number_trans,",
+				"          Animal_Name = Animal_Name_trans,",
+				"          Species = Species_trans,",
+				"          Primary_Breed = {Primary Breed},",
+				"          Secondary_Breed = Secondary_Breed_trans,",
+				"          Zip_Code = Zip_Code_trans,",
+				"          DI_Job_ID,",
+				"          DI_LOAD_DT",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> PickedRequiredCols",
+				"PickedRequiredCols sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: []) ~> sinkAdlsSilver",
+				"PickedRequiredCols sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          LICENSE_ISSUE_DATE as date,",
+				"          LICENSE_NUMBER as decimal(38,0),",
+				"          ANIMAL_NAME as string,",
+				"          SPECIES as string,",
+				"          PRIMARY_BREED as string,",
+				"          SECONDARY_BREED as string,",
+				"          ZIP_CODE as string,",
+				"          DI_JOB_ID as string,",
+				"          DI_LOAD_DT as date",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     stageInsert: true,",
+				"     mapColumn(",
+				"          LICENSE_ISSUE_DATE = License_Issue_Date,",
+				"          LICENSE_NUMBER = License_Number,",
+				"          ANIMAL_NAME = Animal_Name,",
+				"          SPECIES = Species,",
+				"          PRIMARY_BREED = Primary_Breed,",
+				"          SECONDARY_BREED = Secondary_Breed,",
+				"          ZIP_CODE = Zip_Code,",
+				"          DI_JOB_ID = DI_Job_ID,",
+				"          DI_LOAD_DT",
+				"     )) ~> SinkSnfStgTbl"
+			]
+		}
+	}
+}

@@ -1,26 +1,16 @@
 {
-	"name": "snf_ds",
+	"name": "Snowflake_SEA_PET_LIC_v2_STG",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "Snowflake_LS",
 			"type": "LinkedServiceReference"
-		},
-		"parameters": {
-			"schema": {
-				"type": "string",
-				"defaultValue": "STG"
-			},
-			"tablename": {
-				"type": "string",
-				"defaultValue": "PET_LICENSE_STAGE"
-			}
 		},
 		"annotations": [],
 		"type": "SnowflakeV2Table",
 		"schema": [],
 		"typeProperties": {
 			"schema": "STG",
-			"table": "PET_LICENSE_STAGE"
+			"table": "PET_LICENSE_V2_STG"
 		}
 	},
 	"type": "Microsoft.DataFactory/factories/datasets"

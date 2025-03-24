@@ -1,0 +1,85 @@
+{
+	"name": "DF_SEA_PET_LIC_LOCATION_DIM_LOAD",
+	"properties": {
+		"description": "loading location dim in Snf",
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DelimitedText_GeoData_ds",
+						"type": "DatasetReference"
+					},
+					"name": "GeoDataCSV"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "Snowflake_LocationDim_table",
+						"type": "DatasetReference"
+					},
+					"name": "SinkSnfLocDim"
+				}
+			],
+			"transformations": [
+				{
+					"name": "surrogateKey1"
+				},
+				{
+					"name": "derivedColumn1"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     Job_id as string (\"SP_001\")",
+				"}",
+				"source(output(",
+				"          state_fips as string,",
+				"          state as string,",
+				"          state_abbr as string,",
+				"          zipcode as string,",
+				"          county as string,",
+				"          city as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> GeoDataCSV",
+				"GeoDataCSV keyGenerate(output(Geo_SK_ID as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKey1",
+				"surrogateKey1 derive(DI_JOB_ID = $Job_id,",
+				"          DI_LOAD_DATE = currentDate()) ~> derivedColumn1",
+				"derivedColumn1 sink(allowSchemaDrift: false,",
+				"     validateSchema: false,",
+				"     input(",
+				"          LOCATION_SK as decimal(10,0),",
+				"          CITY as string,",
+				"          STATE as string,",
+				"          STATE_ABBR as string,",
+				"          ZIP_CODE as string,",
+				"          DI_JOB_ID as string,",
+				"          DI_LOAD_DT as date",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     truncate:true,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     stageInsert: true,",
+				"     mapColumn(",
+				"          LOCATION_SK = Geo_SK_ID,",
+				"          CITY = city,",
+				"          STATE = state,",
+				"          STATE_ABBR = state_abbr,",
+				"          ZIP_CODE = zipcode,",
+				"          DI_JOB_ID,",
+				"          DI_LOAD_DT = DI_LOAD_DATE",
+				"     )) ~> SinkSnfLocDim"
+			]
+		}
+	}
+}

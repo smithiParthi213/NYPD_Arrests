@@ -20,5 +20,6 @@
 			"schema": "STG",
 			"table": "ARRESTS"
 		}
-	}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
 }
