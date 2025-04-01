@@ -69,4 +69,24 @@ Each entry in the dataset includes detailed information about the type of crime 
 ![image](https://github.com/user-attachments/assets/bafafced-d7b8-43dc-add2-806755a68057)
 
 
+## Interactive Dashboards - Viz for deeper insights on NYPD Crime Data
 
+### Time-Based Analysis
+
+![image](https://github.com/user-attachments/assets/209a41b8-d5af-4cde-a25a-da761369a6e4)
+
+### CrimeType-Based Analysis
+
+![image](https://github.com/user-attachments/assets/0c2cbf64-ee89-43bc-9633-f3463001e3e2)
+
+### Geographical Analysis
+
+![image](https://github.com/user-attachments/assets/a45d15cf-aa4c-4ef4-8a84-bf7d5af352b5)
+
+### Demographic Analysis
+
+![image](https://github.com/user-attachments/assets/2d36e9fe-7180-4d87-9047-1cd3cb832afb)
+
+### Predictive Analysis
+
+![image](https://github.com/user-attachments/assets/21517c8d-00d2-4f8c-ad2f-a776cf8cba62)
